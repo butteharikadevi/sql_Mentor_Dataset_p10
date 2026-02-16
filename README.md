@@ -1,10 +1,9 @@
 # SQL Mentor User Performance Analysis | Project No.10
 
-![SQL Data Analytics](https://github.com/najirh/sql-project-10---sql-mentor-datasets/blob/main/Unknown-5.jpg)
 
 ## Project Overview
 
-This project is designed to help beginners understand SQL querying and performance analysis using real-time data from SQL Mentor datasets. In this project, you will analyze user performance by creating and querying a table of user submissions. The goal is to solve a series of SQL problems to extract meaningful insights from user data.
+This project is designed to help  understand SQL querying and performance analysis using real-time data from SQL Mentor datasets. In this project, you will analyze user performance by creating and querying a table of user submissions. The goal is to solve a series of SQL problems to extract meaningful insights from user data.
 
 ## Objectives
 
@@ -13,9 +12,6 @@ This project is designed to help beginners understand SQL querying and performan
 - Gain hands-on experience with SQL functions like `COUNT`, `SUM`, `AVG`, `EXTRACT()`, and `DENSE_RANK()`.
 - Develop skills for performance analysis using SQL by solving different types of data problems related to user performance.
 
-## Project Level: Beginner
-
-This project is designed for beginners who are familiar with the basics of SQL and want to learn how to handle real-world data analysis problems. You'll be working with a small dataset and writing SQL queries to solve different tasks that are commonly encountered in data analytics.
 
 ## SQL Mentor User Performance Dataset
 
@@ -66,82 +62,100 @@ Below are the solutions for each question in this project:
 
 ### Q1: List All Distinct Users and Their Stats
 ```sql
-SELECT 
-    username,
-    COUNT(id) AS total_submissions,
-    SUM(points) AS points_earned
-FROM user_submissions
-GROUP BY username
-ORDER BY total_submissions DESC;
+select 
+	distinct username,
+    count(id) as total_submissions,
+    sum(points) as total_points
+from user_submissions
+group by 1
+order by total_submissions desc;
 ```
 
 ### Q2: Calculate the Daily Average Points for Each User
 ```sql
-SELECT 
-    TO_CHAR(submitted_at, 'DD-MM') AS day,
-    username,
-    AVG(points) AS daily_avg_points
-FROM user_submissions
-GROUP BY 1, 2
-ORDER BY username;
+select 
+	DATE_FORMAT(submitted_at, '%d-%m') AS day,
+    username, 
+    avg(points) as daily_avg_points
+from user_submissions
+group by 1,2
+order by username;
 ```
 
 ### Q3: Find the Top 3 Users with the Most Correct Submissions for Each Day
 ```sql
-WITH daily_submissions AS (
-    SELECT 
-        TO_CHAR(submitted_at, 'DD-MM') AS daily,
-        username,
-        SUM(CASE WHEN points > 0 THEN 1 ELSE 0 END) AS correct_submissions
-    FROM user_submissions
-    GROUP BY 1, 2
+with cte as
+(
+select *,
+case 
+when points>0 then 'correct_sub'
+else 'wrong_sub'
+end  as submission_type
+from user_submissions
 ),
-users_rank AS (
-    SELECT 
-        daily,
-        username,
-        correct_submissions,
-        DENSE_RANK() OVER(PARTITION BY daily ORDER BY correct_submissions DESC) AS rank
-    FROM daily_submissions
-)
-SELECT 
-    daily,
+cte1
+as
+(select 
+	date_format(submitted_at, '%d-%m') as day,
     username,
-    correct_submissions
-FROM users_rank
-WHERE rank <= 3;
+    count(*) as correct_sub,
+    dense_rank() over(partition by date_format(submitted_at, '%d-%m') order by count(*) desc) as dn
+from cte
+where submission_type='correct_sub'
+group by 1,2
+) 
+select day as daily,username,correct_sub
+from cte1
+where dn <=3;
 ```
 
 ### Q4: Find the Top 5 Users with the Highest Number of Incorrect Submissions
 ```sql
-SELECT 
-    username,
-    SUM(CASE WHEN points < 0 THEN 1 ELSE 0 END) AS incorrect_submissions,
-    SUM(CASE WHEN points > 0 THEN 1 ELSE 0 END) AS correct_submissions,
-    SUM(CASE WHEN points < 0 THEN points ELSE 0 END) AS incorrect_submissions_points,
-    SUM(CASE WHEN points > 0 THEN points ELSE 0 END) AS correct_submissions_points_earned,
-    SUM(points) AS points_earned
-FROM user_submissions
-GROUP BY 1
-ORDER BY incorrect_submissions DESC;
+with cte as
+(
+select *,
+case
+when points>0 then 1
+else 0
+end as sub_type
+
+ from user_submissions),
+ cte2
+ as
+ (
+ select username,
+  count(*) as wrong_sub,
+  dense_rank() over(order by count(*) desc) as dn
+  from cte 
+  where sub_type=0
+  group by 1
+  )
+  select username,wrong_sub from cte2
+  where dn <=5;
 ```
 
 ### Q5: Find the Top 10 Performers for Each Week
 ```sql
-SELECT *  
-FROM (
-    SELECT 
-        EXTRACT(WEEK FROM submitted_at) AS week_no,
-        username,
-        SUM(points) AS total_points_earned,
-        DENSE_RANK() OVER(PARTITION BY EXTRACT(WEEK FROM submitted_at) ORDER BY SUM(points) DESC) AS rank
-    FROM user_submissions
-    GROUP BY 1, 2
-    ORDER BY week_no, total_points_earned DESC
-)
-WHERE rank <= 10;
+with cte as
+(select 
+	username,
+	week(submitted_at) as weeknum,
+    sum(points) as total_points,
+    dense_rank() over(partition by week(submitted_at) order by sum(points) desc) as dn
+from user_submissions
+group by 1,2)
+select 
+	username,
+    weeknum,
+    total_points
+from cte 
+where dn <=10;
 ```
 
 ## Conclusion
 
-This project provides an excellent opportunity for beginners to apply their SQL knowledge to solve practical data problems. By working through these SQL queries, you'll gain hands-on experience with data aggregation, ranking, date manipulation, and conditional logic.
+This project provides a clear analytical view of user performance by summarizing submissions, points, accuracy, and weekly rankings. Through daily and weekly breakdowns, it highlights top performers and identifies behavioral patterns across users. Overall, it delivers actionable insights that help understand engagement, consistency, and performance trends within the platform.
+
+
+
+
